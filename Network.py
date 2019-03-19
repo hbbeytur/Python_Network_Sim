@@ -7,6 +7,10 @@ class Network(object):
         self.packet_generator(num_packet,num_source,arrival)
         self.Queue = self.Queue(queue,num_source)
         self.Service = self.Service(num_source,num_packet,num_server,service)
+        self.Scheduler = self.Scheduler(scheduler,preemption,self)
+
+        self.inflight = []
+        self.story = [[[0,0]]]*num_source
 
 
     class Queue(object): # Stores arrival time of waiting packets
@@ -38,11 +42,16 @@ class Network(object):
         b = arr.ravel()
         index = np.mod(b.argsort(),num_source)
         time = b.sort()
-        controlSteps =[time.tolist(),index.tolist()]
+        self.controlSteps = np.concatenate([[time],[index]]).T.tolist()
+    def store(self,source_id,arrival,departure):
+        self.story[source_id] = self.story[source_id] + [[arrival,departure]]
 
     class Scheduler(object):
-        def __init__(self):
-            pass
+        def __init__(self,scheduler,preemption,network):
+            self.scheduler = scheduler
+        def MAF(self):
+            network.Queue.waiting
+
 
     class Service(object):
         def __init__(self,num_source,num_packet,num_server,service,seed = 15):
@@ -59,6 +68,19 @@ class Network(object):
             else: return self.servicetime[source_id].pop()
 
     def controller(self):
+        if not self.controlSteps:
+            print("END OF THE SIMULATION")
+            return 0
+        controlinput = self.controlSteps.pop(0)
+
+        if controlinput[1] > -10:  # Controls whether arrival instance or departure
+            self.Queue.putin(controlinput[1], controlinput[0])
+        else:
+            # Try to complete service
+
+
+
+
 
 
 
