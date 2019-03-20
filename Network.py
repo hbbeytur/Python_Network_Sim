@@ -20,7 +20,7 @@ class Network(object):
         self.arrival = []
         self.story = [[[0,0]]]*num_source
         self.departure = math.inf
-
+        self.termination = False
 
     class Queue(object): # Stores arrival time of waiting packets
         def __init__(self,queue,num_source):
@@ -35,8 +35,11 @@ class Network(object):
             if self.waiting[source_id]:
                 return self.waiting[source_id].pop()
             else: return -1
-        def lastvalue(self,source_id):
+        def nextvalue(self,source_id):
             return self.waiting[source_id][-1]
+        def preempt(self,source_id,packet):
+            self.waiting[source_id] = self.waiting[source_id] + packet
+
 
     def packet_generator(self,num_packet,num_source,arrival,seed = 0):
         if arrival[0] == "poisson":
@@ -69,16 +72,16 @@ class Network(object):
         def MAF(self,time):
             self.ins_age = [0]* self.num_source
             for i in range(self.num_source -1):
-                if network.Queue.lastvalue(i) > network.story[i][-1][0]: # If waiting packet is age-effective
+                if network.Queue.nextvalue(i) > network.story[i][-1][0]: # If waiting packet is age-effective
                     self.ins_age[i] = time - network.story[i][-1][0] # This should be always positive
             return np.argmax(self.ins_age)
         def MAD(self,time):
             pass
 
-
     class Service(object):
         def __init__(self,num_source,num_packet,num_server,service,seed = 15):
             self.arg = [num_source,num_packet,num_server,service,seed]
+
             self.id = -1
 
             if service[0] == "exponential":
@@ -92,37 +95,47 @@ class Network(object):
                 self.__init__(*self.arg)
             else: return self.servicetime[source_id].pop()
 
-    def preempter(self):
-        pass
+
+
+    def newService(self,currenttime,source_id):
+        self.arrival = self.Queue.takeout(source_id)
+        self.departure = currenttime + self.Service.time(source_id)
+        self.Service.id = source_id
+
+    def completeService(self):
+        self.store(source_id, self.arrival, currenttime)  # Complete service
+        self.Service.id = -1
+        self.departure = math.inf
 
     def controller(self):
         if not self.controlSteps:
             print("END OF THE SIMULATION")
+            self.termination = True
             return 0
 
         if self.controlSteps[-1][0] < self.departure: # Controls whether arrival instance or departure
             (currenttime, source_id) = self.controlSteps.pop(0)
             self.Queue.putin(source_id,currenttime) # Put new arrival into queue
-            if (self.Service.id < 0):
-                self.preempter()
         else: # departure
-            (currenttime, source_id) = (self.departure,self.Service.resuming)
+            (currenttime, source_id) = (self.departure,self.Service.id)
+            self.completeService()
 
-        self.nextpotentialschedule = self.Scheduler.nextmove(currenttime)
-
-
-
-
-
-
-
-
-
-
-
-
+        self.next_id = self.Scheduler.nextmove(currenttime)
+        if (self.Service.id < 0):
+            self.newService(currenttime, next_id)
+        elif self.preemption:
+            old_arrival = self.arrival
+            old_id = self.Service.id
+            self.newService(currenttime,next_id)
+            self.Queue.preempt(old_id,old_arrival)
+        else:
+            pass
+    def run(self):
+        while self.termination:
+            self.controller()
 
 
 if __name__ == "__main__":
-    net = Network(arrival=("deterministic",[1]*5))
+    net = Network()
+    net.run()
 
