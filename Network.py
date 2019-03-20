@@ -6,7 +6,7 @@ class Network(object):
 
         self.num_source = num_source
         self.num_packet = num_packet
-        self.arrival = arrival
+        # self.arrival = arrival
         self.service = service
         self.queue = queue
         self.preemption = preemption
@@ -28,9 +28,9 @@ class Network(object):
             self.waiting = [[]]*num_source
         def putin(self,source_id,packet):
             if self.Qtype == "FCFS":
-                self.waiting[source_id] = packet + self.waiting[source_id]
+                self.waiting[source_id] = [packet] + self.waiting[source_id]
             elif self.Qtype == "LCFS":
-                self.waiting[source_id] = self.waiting[source_id] + packet
+                self.waiting[source_id] = self.waiting[source_id] + [packet]
         def takeout(self,source_id):
             if self.waiting[source_id]:
                 return self.waiting[source_id].pop()
@@ -38,7 +38,7 @@ class Network(object):
         def nextvalue(self,source_id):
             return self.waiting[source_id][-1]
         def preempt(self,source_id,packet):
-            self.waiting[source_id] = self.waiting[source_id] + packet
+            self.waiting[source_id] = self.waiting[source_id] + [packet]
 
 
     def packet_generator(self,num_packet,num_source,arrival,seed = 0):
@@ -53,10 +53,10 @@ class Network(object):
         self.arr = np.insert(self.arr,0,0,axis=0)
         self.arr = self.arr.T
     def generatecontrolinstances(self,num_source,num_packet,arr):
-        b = arr.ravel()
+        b = arr.flatten()
         index = np.mod(b.argsort(),num_source)
-        time = b.sort()
-        self.controlSteps = np.concatenate([[time],[index]]).T.tolist()
+        b.sort()
+        self.controlSteps = np.concatenate([[b],[index]]).T.tolist()
     def store(self,source_id,arrival,departure):
         self.story[source_id] = self.story[source_id] + [[arrival,departure]]
 
@@ -64,16 +64,15 @@ class Network(object):
         def __init__(self,scheduler,preemption,num_source,network):
             self.scheduler = scheduler
             self.num_source = num_source
+            self.network = network
         def nextmove(self,time):
             if self.scheduler == "MAF":
                 return self.MAF(time)
             elif self.scheduler == "MAD":
                 return self.MAD(time)
         def MAF(self,time):
-            self.ins_age = [0]* self.num_source
-            for i in range(self.num_source -1):
-                if network.Queue.nextvalue(i) > network.story[i][-1][0]: # If waiting packet is age-effective
-                    self.ins_age[i] = time - network.story[i][-1][0] # This should be always positive
+        # TODO: decide schedule among age-effective and exist packets. (Problem: comparison with empty list)
+
             return np.argmax(self.ins_age)
         def MAD(self,time):
             pass
@@ -115,9 +114,10 @@ class Network(object):
 
         if self.controlSteps[-1][0] < self.departure: # Controls whether arrival instance or departure
             (currenttime, source_id) = self.controlSteps.pop(0)
+            source_id = int(source_id)
             self.Queue.putin(source_id,currenttime) # Put new arrival into queue
         else: # departure
-            (currenttime, source_id) = (self.departure,self.Service.id)
+            (currenttime, source_id) = (self.departure,int(self.Service.id))
             self.completeService()
 
         self.next_id = self.Scheduler.nextmove(currenttime)
@@ -131,7 +131,7 @@ class Network(object):
         else:
             pass
     def run(self):
-        while self.termination:
+        while not self.termination:
             self.controller()
 
 
